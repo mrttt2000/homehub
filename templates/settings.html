@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="card p-6">
+    <h1 class="text-2xl font-bold mb-4">Settings</h1>
+    <form method="POST" action="/settings" class="space-y-8">
+      <!-- Instance -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Instance</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Instance name</label>
+            <input name="instance_name" value="{{ config.instance_name }}" class="w-full border rounded p-2 text-gray-900" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Admin display name</label>
+            <input name="admin_name" value="{{ config.admin_name }}" class="w-full border rounded p-2 text-gray-900" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Passwords -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Passwords</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Household password (optional)</label>
+            <input name="new_password" type="password" class="w-full border rounded p-2 text-gray-900" placeholder="Leave blank to keep unchanged" />
+            <label class="inline-flex items-center gap-2 mt-2 text-sm text-gray-800">
+              <input type="checkbox" name="clear_password" />
+              <span>Clear household password</span>
+            </label>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Admin password</label>
+            <input name="new_admin_password" type="password" class="w-full border rounded p-2 text-gray-900" placeholder="Leave blank to keep unchanged" />
+            <label class="inline-flex items-center gap-2 mt-2 text-sm text-gray-800">
+              <input type="checkbox" name="clear_admin_password" />
+              <span>Clear admin password (disables admin features)</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Feature toggles -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Features</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-y-2">
+          {% for key, val in (config.feature_toggles or {}).items() %}
+          <label class="inline-flex items-center gap-2 text-gray-800">
+            <input type="checkbox" name="ft_{{ key }}" {% if val %}checked{% endif %} />
+            <span class="capitalize">{{ key.replace('_',' ') }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- Family members -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Family members</h2>
+        <label class="block text-sm font-medium text-gray-800 mb-1">One per line</label>
+        <textarea name="family_members" rows="5" class="w-full border rounded p-2 text-gray-900">{{ (config.family_members or []) | join('\n') }}</textarea>
+      </section>
+
+      <!-- Reminders -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Reminders</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Time format</label>
+            <select name="rem_time_format" class="w-full border rounded p-2 text-gray-900">
+              {% set tf = (config.reminders or {}).get('time_format') or '12h' %}
+              <option value="12h" {% if tf=='12h' %}selected{% endif %}>12h</option>
+              <option value="24h" {% if tf=='24h' %}selected{% endif %}>24h</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Calendar start day</label>
+            {% set sd = (config.reminders or {}).get('calendar_start_day') or 'sunday' %}
+            <select name="rem_calendar_start_day" class="w-full border rounded p-2 text-gray-900">
+              {% for day in ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] %}
+                <option value="{{ day }}" {% if sd==day %}selected{% endif %}>{{ day|capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mt-4">
+          <label class="block text-sm font-medium text-gray-800 mb-1">Categories (JSON array)</label>
+          <textarea name="rem_categories_json" rows="6" class="w-full border rounded p-2 font-mono text-sm text-gray-900">{{ ((config.reminders or {}).get('categories') or []) | tojson(indent=2) }}</textarea>
+        </div>
+      </section>
+
+      <!-- Theme -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Theme Colors</h2>
+        <p class="text-sm text-gray-600 mb-4">Click on color swatches to pick colors visually. For advanced colors (rgba), edit the text field directly.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {% set th = config.theme or {} %}
+          {% set hex_keys = ['primary_color','secondary_color','background_color','card_background_color','text_color','sidebar_background_color','sidebar_text_color','sidebar_active_color'] %}
+          {% set text_keys = ['sidebar_link_color','sidebar_link_border_color'] %}
+          
+          {% for key in hex_keys %}
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">{{ key.replace('_',' ')|capitalize }}</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="color_{{ key }}" value="{{ th.get(key, '#ffffff') }}" class="h-10 w-16 border rounded cursor-pointer" />
+              <input name="theme_{{ key }}" id="text_{{ key }}" value="{{ th.get(key,'') }}" class="flex-1 border rounded p-2 font-mono text-sm text-gray-900" placeholder="#000000" />
+            </div>
+          </div>
+          {% endfor %}
+
+          {% for key in text_keys %}
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">{{ key.replace('_',' ')|capitalize }}</label>
+            <input name="theme_{{ key }}" value="{{ th.get(key,'') }}" class="w-full border rounded p-2 font-mono text-sm text-gray-900" placeholder="rgba(255,255,255,0.95)" />
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- Calendar OAuth Settings -->
+      <section class="bg-white rounded shadow p-6">
+        <h2 class="text-xl font-semibold mb-4 border-b pb-2">Calendar OAuth Credentials</h2>
+        <p class="text-sm text-gray-600 mb-4">Configure OAuth credentials to enable calendar synchronization with Google Calendar and Outlook.</p>
+        
+        {% set co = config.get('calendar_oauth', {}) %}
+        
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Google Calendar</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-800 mb-1">Google Client ID</label>
+                <input type="text" name="calendar_oauth_google_client_id" value="{{ co.get('google_client_id', '') }}" class="w-full border rounded p-2 text-gray-900 font-mono text-sm" placeholder="your-app.apps.googleusercontent.com">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-800 mb-1">Google Client Secret</label>
+                <input type="text" name="calendar_oauth_google_client_secret" value="{{ co.get('google_client_secret', '') }}" class="w-full border rounded p-2 text-gray-900 font-mono text-sm" placeholder="GOCSPX-...">
+              </div>
+            </div>
+          </div>
+          
+          <div class="pt-3 border-t">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">Microsoft Outlook</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-800 mb-1">Outlook Client ID (Application ID)</label>
+                <input type="text" name="calendar_oauth_outlook_client_id" value="{{ co.get('outlook_client_id', '') }}" class="w-full border rounded p-2 text-gray-900 font-mono text-sm" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-800 mb-1">Outlook Client Secret (Value)</label>
+                <input type="text" name="calendar_oauth_outlook_client_secret" value="{{ co.get('outlook_client_secret', '') }}" class="w-full border rounded p-2 text-gray-900 font-mono text-sm" placeholder="Client secret value (not the ID)">
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm">
+          <p class="font-medium text-blue-800 mb-2">📋 Setup Instructions:</p>
+          <ul class="text-blue-700 space-y-1 ml-4 list-disc">
+            <li><strong>Google:</strong> Create OAuth app in <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="underline">Google Cloud Console</a> → Add redirect URI: <code class="bg-white px-1 rounded">http://localhost:5000/calendar/oauth-callback</code></li>
+            <li><strong>Outlook:</strong> Register app in <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" class="underline">Azure Portal</a> → Authentication → Add redirect URI: <code class="bg-white px-1 rounded">http://localhost:5000/calendar/oauth-callback</code></li>
+            <li>After adding credentials, enable <code class="bg-white px-1 rounded">shared_calendar: true</code> in Feature Toggles above</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Weather Settings -->
+      <section class="bg-white rounded shadow p-6">
+        <h2 class="text-xl font-semibold mb-4 border-b pb-2">Weather Widget</h2>
+        <p class="text-sm text-gray-600 mb-4">Display current weather conditions on your dashboard using OpenWeatherMap API.</p>
+        
+        {% set weather = config.get('weather', {}) %}
+        
+        <div class="space-y-4">
+          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded">
+            <input type="checkbox" name="weather_enabled" id="weather_enabled" {{ 'checked' if weather.get('enabled') else '' }} class="w-4 h-4">
+            <label for="weather_enabled" class="text-sm font-medium text-gray-900">Enable Weather Widget</label>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">API Key</label>
+            <input type="text" name="weather_api_key" value="{{ weather.get('api_key', '') }}" class="w-full border rounded p-2 text-gray-900 font-mono text-sm" placeholder="your_api_key_here">
+            <p class="text-xs text-gray-500 mt-1">Get a free API key from <a href="https://openweathermap.org/api" target="_blank" class="text-blue-600 underline">OpenWeatherMap</a></p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Location</label>
+            <input type="text" name="weather_location" value="{{ weather.get('location', '') }}" class="w-full border rounded p-2 text-gray-900" placeholder="New York,US">
+            <p class="text-xs text-gray-500 mt-1">Format: "City,CountryCode" (e.g., "London,UK" or "Tokyo,JP")</p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Units</label>
+            <select name="weather_units" class="w-full border rounded p-2 text-gray-900">
+              <option value="metric" {{ 'selected' if weather.get('units') == 'metric' else '' }}>Metric (Celsius, m/s)</option>
+              <option value="imperial" {{ 'selected' if weather.get('units') == 'imperial' else '' }}>Imperial (Fahrenheit, mph)</option>
+            </select>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-800 mb-1">Update Interval (minutes)</label>
+            <input type="number" name="weather_update_interval" value="{{ weather.get('update_interval', 30) }}" min="10" max="120" class="w-full border rounded p-2 text-gray-900">
+            <p class="text-xs text-gray-500 mt-1">How often to refresh weather data (10-120 minutes)</p>
+          </div>
+        </div>
+        
+        <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded text-sm">
+          <p class="font-medium text-yellow-800 mb-2">🌤️ Quick Setup:</p>
+          <ol class="text-yellow-700 space-y-1 ml-4 list-decimal">
+            <li>Sign up at <a href="https://openweathermap.org/appid" target="_blank" class="underline font-medium">openweathermap.org</a> (free tier: 1000 calls/day)</li>
+            <li>Copy your API key and paste above</li>
+            <li>Set your location (find your city at <a href="https://openweathermap.org/find" target="_blank" class="underline">openweathermap.org/find</a>)</li>
+            <li>Choose units and enable the widget</li>
+          </ol>
+        </div>
+      </section>
+
+    <script>
+          if (!textInput) return;
+          
+          // Update text when picker changes
+          picker.addEventListener('input', () => {
+            textInput.value = picker.value;
+          });
+          
+          // Update picker when text changes (if valid hex)
+          textInput.addEventListener('input', () => {
+            const val = textInput.value.trim();
+            if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+              picker.value = val;
+            }
+          });
+        });
+      </script>
+
+      <div class="flex items-center justify-between">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save settings</button>
+        <form action="/admin-logout" method="POST">
+          <button class="btn btn-secondary" type="submit">Admin off</button>
+        </form>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

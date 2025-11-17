@@ -24,6 +24,22 @@ window.REMINDERS_CAL_START = (function(){
 			<div class="text-sm text-gray-500" id="today"></div>
 		</div>
 
+		<!-- Weather Widget -->
+		{% if config.weather and config.weather.enabled %}
+		<div class="card p-6" id="weatherCard">
+			<h2 class="text-xl font-bold mb-3 flex items-center gap-2">
+				<i class="fa-solid fa-cloud-sun text-sky-500"></i>
+				<span>Weather</span>
+			</h2>
+			<div id="weatherContent">
+				<div class="flex items-center justify-center py-8 text-gray-400">
+					<i class="fa-solid fa-spinner fa-spin mr-2"></i>
+					Loading weather...
+				</div>
+			</div>
+		</div>
+		{% endif %}
+
 			<div class="card p-6">
 				<h2 class="text-xl font-bold mb-3"><i class="fa-solid fa-bullhorn text-amber-600 mr-2"></i>Family Notice Board</h2>
 			{% if notice and notice.content %}
@@ -1014,4 +1030,73 @@ window.REMINDERS_CAL_START = (function(){
 	document.getElementById('memberStatusDeleteName')?.setAttribute('value', cur);
 })();
 </script>
+
+{% if config.weather and config.weather.enabled %}
+<script>
+// Weather widget
+(function(){
+	const weatherCard = document.getElementById('weatherContent');
+	if(!weatherCard) return;
+	
+	let updateInterval = {{ config.weather.update_interval or 30 }} * 60 * 1000; // Convert minutes to milliseconds
+	let refreshTimer = null;
+	
+	function fetchWeather(){
+		fetch('/api/weather')
+			.then(r => r.json())
+			.then(data => {
+				if(data.ok){
+					weatherCard.innerHTML = `
+						<div class="flex items-center gap-4">
+							<div class="flex-shrink-0">
+								<img src="${data.icon_url}" alt="${data.description}" class="w-20 h-20">
+							</div>
+							<div class="flex-grow">
+								<div class="text-4xl font-bold">${Math.round(data.temp)}${data.temp_unit}</div>
+								<div class="text-lg text-gray-600 capitalize">${data.description}</div>
+								<div class="text-sm text-gray-500">${data.location}</div>
+							</div>
+							<div class="flex-shrink-0 text-right text-sm text-gray-600">
+								<div><i class="fa-solid fa-temperature-half mr-1"></i>Feels like ${Math.round(data.feels_like)}${data.temp_unit}</div>
+								<div><i class="fa-solid fa-droplet mr-1"></i>${data.humidity}% humidity</div>
+								<div><i class="fa-solid fa-wind mr-1"></i>${Math.round(data.wind_speed)} ${data.wind_unit}</div>
+							</div>
+						</div>
+					`;
+				} else {
+					let errorMsg = 'Unable to load weather';
+					if(data.error === 'Weather widget is not enabled'){
+						errorMsg = 'Weather widget disabled';
+					} else if(data.error && data.error.includes('API key')){
+						errorMsg = 'Invalid API key - check settings';
+					} else if(data.error && data.error.includes('Location')){
+						errorMsg = 'Location not found - check settings';
+					}
+					weatherCard.innerHTML = `
+						<div class="text-center py-4 text-gray-500">
+							<i class="fa-solid fa-exclamation-triangle mr-2"></i>${errorMsg}
+						</div>
+					`;
+				}
+			})
+			.catch(err => {
+				console.error('Weather fetch error:', err);
+				weatherCard.innerHTML = `
+					<div class="text-center py-4 text-gray-500">
+						<i class="fa-solid fa-exclamation-triangle mr-2"></i>Unable to load weather
+					</div>
+				`;
+			});
+	}
+	
+	// Initial fetch
+	fetchWeather();
+	
+	// Set up auto-refresh
+	if(refreshTimer) clearInterval(refreshTimer);
+	refreshTimer = setInterval(fetchWeather, updateInterval);
+})();
+</script>
+{% endif %}
+
 {% endblock %}
