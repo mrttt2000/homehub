@@ -163,3 +163,28 @@ class ExpenseEntry(db.Model):
     payer = db.Column(db.String(64))
     recurring_id = db.Column(db.Integer, db.ForeignKey('recurring_expense.id'))
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class CalendarConnection(db.Model):
+    """Store OAuth tokens for calendar sync per user and provider"""
+    id = db.Column(db.Integer, primary_key=True)
+    user = db.Column(db.String(64), nullable=False)  # family member name
+    provider = db.Column(db.String(16), nullable=False)  # 'google' or 'outlook'
+    access_token = db.Column(db.Text)  # encrypted in production
+    refresh_token = db.Column(db.Text)  # encrypted in production
+    token_expiry = db.Column(db.DateTime)
+    email = db.Column(db.String(256))  # user's email for this calendar
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_sync = db.Column(db.DateTime)
+
+class CalendarEvent(db.Model):
+    """Cache of synced calendar events for availability view"""
+    id = db.Column(db.Integer, primary_key=True)
+    connection_id = db.Column(db.Integer, db.ForeignKey('calendar_connection.id'), nullable=False)
+    user = db.Column(db.String(64), nullable=False)  # denormalized for easy queries
+    provider_event_id = db.Column(db.String(256))  # external event ID
+    summary = db.Column(db.String(512))
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    is_all_day = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(16))  # confirmed, tentative, cancelled
+    synced_at = db.Column(db.DateTime, default=datetime.utcnow)
