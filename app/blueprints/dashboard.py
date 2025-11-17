@@ -4,6 +4,7 @@ from ..models import db, HomeStatus, MemberStatus, Notice, Reminder, RecurringRe
 from ..blueprints import main_bp
 from ..security import sanitize_html, sanitize_text
 import json
+import requests
 
 
 def _parse_date_param(value, default=None):
@@ -658,3 +659,78 @@ def member_status_delete():
         member_statuses = {ms.name: ms.text for ms in MemberStatus.query.all() if ms.name in family and (ms.text or '').strip()}
         return jsonify({'ok': True, 'who_statuses': who_statuses, 'member_statuses': member_statuses, 'result': 'removed' if removed else 'none'})
     return redirect(url_for('main.index'))
+
+
+@main_bp.route('/api/weather')
+def api_weather():
+    """Fetch current weather from OpenWeatherMap API"""
+    try:
+        config = current_app.config.get('HOMEHUB_CONFIG', {})
+        weather_cfg = config.get('weather', {})
+        
+        if not weather_cfg.get('enabled'):
+            return jsonify({'ok': False, 'error': 'Weather widget not enabled'}), 400
+        
+        api_key = weather_cfg.get('api_key', '').strip()
+        location = weather_cfg.get('location', '').strip()
+        units = weather_cfg.get('units', 'imperial')
+        
+        if not api_key or not location:
+            return jsonify({'ok': False, 'error': 'Weather API key or location not configured'}), 400
+    except Exception as e:
+        current_app.logger.exception('Error reading weather config')
+        return jsonify({'ok': False, 'error': f'Config error: {str(e)}'}), 500
+    
+    try:
+        # Call OpenWeatherMap Current Weather API
+        url = 'https://api.openweathermap.org/data/2.5/weather'
+        params = {
+            'q': location,
+            'appid': api_key,
+            'units': units  # metric or imperial
+        }
+        
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        # Extract relevant weather info
+        temp = round(data['main']['temp'])
+        feels_like = round(data['main']['feels_like'])
+        description = data['weather'][0]['description'].title()
+        icon = data['weather'][0]['icon']
+        humidity = data['main']['humidity']
+        wind_speed = round(data['wind']['speed'])
+        
+        # Unit labels
+        temp_unit = '°F' if units == 'imperial' else '°C'
+        wind_unit = 'mph' if units == 'imperial' else 'm/s'
+        
+        return jsonify({
+            'ok': True,
+            'temp': temp,
+            'feels_like': feels_like,
+            'description': description,
+            'icon': icon,
+            'icon_url': f'https://openweathermap.org/img/wn/{icon}@2x.png',
+            'humidity': humidity,
+            'wind_speed': wind_speed,
+            'temp_unit': temp_unit,
+            'wind_unit': wind_unit,
+            'location': data['name']
+        })
+        
+    except requests.exceptions.HTTPError as e:
+        status_code = e.response.status_code if e.response else 500
+        if status_code == 401:
+            return jsonify({'ok': False, 'error': 'Invalid API key'}), 401
+        elif status_code == 404:
+            return jsonify({'ok': False, 'error': 'Location not found'}), 404
+        else:
+            current_app.logger.error(f'Weather API HTTP error: {e}')
+            return jsonify({'ok': False, 'error': 'Weather service error'}), 500
+            
+    except Exception as e:
+        current_app.logger.exception('Weather API request failed')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+

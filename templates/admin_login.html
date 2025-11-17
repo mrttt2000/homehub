@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto card p-6">
+    <h2 class="text-2xl font-bold mb-4">Admin sign in</h2>
+    <p class="text-sm text-gray-600 mb-4">Enter the admin password to access Settings.</p>
+    <form method="POST" class="space-y-3">
+        <input type="password" name="password" class="w-full p-2 border rounded" placeholder="Admin password" required>
+        <button type="submit" class="w-full btn btn-primary">Continue</button>
+    </form>
+    <p class="text-xs text-gray-500 mt-3">Admin password is configured via <code>config.yml</code> (key: <code>admin_password</code>).</p>
+    <div class="mt-4 text-center">
+        <a href="/" class="text-blue-600 hover:underline">Back to Home</a>
+    </div>
+    </div>
+{% endblock %}

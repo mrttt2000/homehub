@@ -1,5 +1,6 @@
 flask
 flask_sqlalchemy
+flask-apscheduler
 pyyaml
 werkzeug
 qrcode
@@ -9,3 +10,4 @@ gunicorn
 Flask-WTF
 bleach
 pytest
+requests

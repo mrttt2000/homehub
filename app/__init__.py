@@ -1,10 +1,12 @@
 from flask import Flask, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_apscheduler import APScheduler
 from .config import load_config
 import os
 import secrets
 
 db = SQLAlchemy()
+scheduler = APScheduler()
 
 
 def create_app(test_config: dict | None = None):
@@ -163,12 +165,48 @@ def create_app(test_config: dict | None = None):
     from .blueprints import expenses  # noqa: F401
     from .blueprints import chores  # noqa: F401
     from .blueprints import qr  # noqa: F401
+    from .blueprints import settings  # noqa: F401
+    from .blueprints import calendar  # noqa: F401
     app.register_blueprint(main_bp)
+
+    # Set up background scheduler for calendar sync
+    app.config['SCHEDULER_API_ENABLED'] = True
+    scheduler.init_app(app)
+    
+    # Add hourly calendar sync job
+    @scheduler.task('interval', id='sync_calendars', hours=1, misfire_grace_time=900)
+    def sync_all_calendars():
+        """Background job to sync all connected calendars every hour"""
+        with app.app_context():
+            try:
+                from .models import CalendarConnection
+                from .blueprints.calendar import calendar_sync
+                
+                connections = CalendarConnection.query.all()
+                app.logger.info(f'[scheduler] Starting calendar sync for {len(connections)} connections')
+                
+                for conn in connections:
+                    try:
+                        calendar_sync(conn.id)
+                        app.logger.info(f'[scheduler] Synced calendar for {conn.user} ({conn.provider})')
+                    except Exception as e:
+                        app.logger.error(f'[scheduler] Failed to sync calendar for {conn.user}: {e}')
+                        
+            except Exception as e:
+                app.logger.error(f'[scheduler] Calendar sync job failed: {e}')
+    
+    # Start the scheduler only if not in testing mode
+    if not app.config.get('TESTING'):
+        scheduler.start()
+        app.logger.info('[scheduler] Background scheduler started')
 
     @app.context_processor
     def inject_auth_state():
+        cfg = app.config.get('HOMEHUB_CONFIG', {})
         return {
-            'is_authed': bool(session.get('authed'))
+            'is_authed': bool(session.get('authed')),
+            'is_admin': bool(session.get('is_admin')),
+            'admin_enabled': bool(cfg.get('admin_password_hash')),
         }
 
     return app

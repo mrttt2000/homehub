@@ -125,6 +125,8 @@
                 {% if config.feature_toggles.get('pdf_compressor') %}<a href="/pdfs" class="flex items-center gap-3 py-2 px-4 rounded sidebar-link" title="PDF Compressor"><i class="fa-solid fa-file-pdf w-5 text-center"></i><span class="nav-label">PDF Compressor</span></a>{% endif %}
                 {% if config.feature_toggles.get('qr_generator') %}<a href="/qr" class="flex items-center gap-3 py-2 px-4 rounded sidebar-link" title="QR Generator"><i class="fa-solid fa-qrcode w-5 text-center"></i><span class="nav-label">QR Generator</span></a>{% endif %}
                 {% if config.feature_toggles.get('expense_tracker', true) %}<a href="/expenses" class="flex items-center gap-3 py-2 px-4 rounded sidebar-link" title="Expense Tracker"><i class="fa-solid fa-wallet w-5 text-center"></i><span class="nav-label">Expense Tracker</span></a>{% endif %}
+                {% if config.feature_toggles.get('shared_calendar') %}<a href="/calendar" class="flex items-center gap-3 py-2 px-4 rounded sidebar-link" title="Shared Calendar"><i class="fa-solid fa-calendar-days w-5 text-center"></i><span class="nav-label">Shared Calendar</span></a>{% endif %}
+                {% if is_admin and (config.feature_toggles.get('settings', true)) %}<a href="/settings" class="flex items-center gap-3 py-2 px-4 rounded sidebar-link" title="Settings"><i class="fa-solid fa-gear w-5 text-center"></i><span class="nav-label">Settings</span></a>{% endif %}
             </nav>
             <script>
             // Highlight active sidebar link
@@ -156,8 +158,17 @@
                                 <label class="text-sm text-gray-600 mr-2">User:</label>
                                 <select id="userSwitcher" class="border rounded p-1 text-sm"></select>
                             </div>
+                            {% if admin_enabled %}
+                                {% if is_admin %}
+                                    <form action="/admin-logout" method="POST" class="inline">
+                                        <button class="px-2 py-1 rounded bg-yellow-100 text-yellow-900" title="Disable admin mode"><i class="fa-solid fa-user-shield"></i> Admin off</button>
+                                    </form>
+                                {% else %}
+                                    <a href="/admin-login" class="px-2 py-1 rounded bg-blue-100 text-blue-900" title="Admin login"><i class="fa-solid fa-user-shield"></i> Admin</a>
+                                {% endif %}
+                            {% endif %}
                             {% if is_authed %}
-                            <a href="/logout" class="px-2 py-1 rounded bg-gray-100 text-gray-800"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+                                <a href="/logout" class="px-2 py-1 rounded bg-gray-100 text-gray-800"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
                             {% endif %}
                         </div>
                         {% endif %}

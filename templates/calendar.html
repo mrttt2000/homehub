@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block head %}
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<style>
+  .fc {
+    max-width: 100%;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .fc-event {
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .connection-card {
+    transition: all 0.2s;
+  }
+  .connection-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  /* FullCalendar header styling */
+  .fc-col-header-cell {
+    background-color: {{ config.theme.primary_color }} !important;
+  }
+  .fc-col-header-cell-cushion {
+    color: white !important;
+    font-weight: 600;
+  }
+  .fc-scrollgrid {
+    border-color: #e5e7eb !important;
+  }
+  
+  /* Dynamic user color assignments */
+  {% for user, color in user_colors.items() %}
+  .fc-event.user-{{ user|replace(' ', '-') }},
+  a.fc-event.user-{{ user|replace(' ', '-') }},
+  .user-{{ user|replace(' ', '-') }}.fc-h-event,
+  .user-{{ user|replace(' ', '-') }}.fc-daygrid-event { 
+    --fc-event-bg-color: {{ color }};
+    --fc-event-border-color: {{ color }};
+    --fc-event-text-color: white;
+    background-color: {{ color }} !important; 
+    border-color: {{ color }} !important;
+    color: white !important;
+  }
+  .fc-event.user-{{ user|replace(' ', '-') }} .fc-event-main,
+  .fc-event.user-{{ user|replace(' ', '-') }} .fc-event-title {
+    color: white !important;
+  }
+  .legend-{{ user|replace(' ', '-') }} { 
+    background-color: {{ color }}; 
+  }
+  {% endfor %}
+  
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+  
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    .fc .fc-toolbar {
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .fc .fc-toolbar-title {
+      font-size: 1.1rem;
+    }
+    .fc .fc-button {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.85rem;
+    }
+    .fc-header-toolbar {
+      margin-bottom: 0.75rem !important;
+    }
+    .fc-daygrid-day-number {
+      font-size: 0.9rem;
+    }
+    .fc-event-title {
+      font-size: 0.85rem;
+    }
+    /* Hide legend on mobile to save space */
+    .flex.items-center.gap-4.text-sm {
+      display: none;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">Shared Calendar</h1>
+      <div class="flex gap-2">
+        <button onclick="document.getElementById('connectModal').classList.remove('hidden')" class="btn btn-primary">
+          <i class="fa-solid fa-link"></i> Connect Calendar
+        </button>
+      </div>
+    </div>
+
+    <!-- Connected Calendars -->
+    <div class="mb-6">
+      <h2 class="text-lg font-semibold mb-3">Connected Calendars</h2>
+      {% if connections %}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for conn in connections %}
+        <div class="border-l-4 rounded p-4 bg-white/60 shadow-sm" style="border-left-color: {{ user_colors[conn.user] }}; background: linear-gradient(to right, {{ user_colors[conn.user] }}15, transparent);">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              {% if conn.provider == 'google' %}
+                <i class="fa-brands fa-google text-blue-600"></i>
+              {% else %}
+                <i class="fa-brands fa-microsoft text-blue-500"></i>
+              {% endif %}
+              <span class="font-medium">{{ conn.user }}</span>
+            </div>
+            <form action="/calendar/disconnect/{{ conn.id }}" method="POST" class="inline">
+              <button type="submit" class="text-red-600 hover:text-red-800 text-sm" title="Disconnect">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </form>
+          </div>
+          <div class="text-sm text-gray-600">
+            <div>{{ conn.provider.capitalize() }}</div>
+            <div class="truncate">{{ conn.email }}</div>
+            <div class="text-xs mt-1">
+              {% if conn.last_sync %}
+                Last sync: {{ conn.last_sync.strftime('%b %d, %I:%M %p') }}
+              {% else %}
+                Never synced
+              {% endif %}
+            </div>
+          </div>
+          <div class="mt-3">
+            <a href="/calendar/sync/{{ conn.id }}" class="text-blue-600 hover:underline text-sm">
+              <i class="fa-solid fa-sync"></i> Sync now
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-gray-600 text-sm">No calendars connected yet. Click "Connect Calendar" to get started.</p>
+      {% endif %}
+    </div>
+
+    <!-- Calendar View -->
+    <div class="mt-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Family Calendar</h2>
+        <div class="flex items-center gap-4 text-sm">
+          {% for conn in connections %}
+            <div class="flex items-center gap-1">
+              <span class="legend-dot legend-{{ conn.user|replace(' ', '-') }}"></span>
+              <span>{{ conn.user }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      
+      <div id="calendar" class="bg-white p-4 rounded shadow"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Connect Calendar Modal -->
+<div id="connectModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white w-full max-w-md p-6 rounded shadow">
+    <h3 class="text-lg font-semibold mb-4">Connect Calendar</h3>
+    <p class="text-sm text-gray-600 mb-4">Choose which family member this calendar belongs to and the provider.</p>
+    
+    <form id="connectForm" method="get">
+      <!-- User selection -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-900 mb-2">Family Member</label>
+        <select name="for_user" id="calendarUser" class="w-full px-3 py-2 border rounded text-gray-900 focus:ring-2 focus:ring-blue-500">
+          <option value="Administrator">Administrator</option>
+          {% for member in config.family_members %}
+          <option value="{{ member }}">{{ member }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <!-- Provider selection -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-900 mb-2">Calendar Provider</label>
+        <div class="space-y-3">
+          <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+            <input type="radio" name="provider" value="google" required class="text-blue-600">
+            <i class="fa-brands fa-google text-blue-600 text-2xl"></i>
+            <div>
+              <div class="font-medium">Google Calendar</div>
+              <div class="text-sm text-gray-600">Connect Gmail calendar</div>
+            </div>
+          </label>
+          
+          <label class="flex items-center gap-3 p-3 border rounded hover:bg-gray-50 cursor-pointer">
+            <input type="radio" name="provider" value="outlook" required class="text-blue-500">
+            <i class="fa-brands fa-microsoft text-blue-500 text-2xl"></i>
+            <div>
+              <div class="font-medium">Outlook Calendar</div>
+              <div class="text-sm text-gray-600">Connect Microsoft/Outlook calendar</div>
+            </div>
+          </label>
+        </div>
+      </div>
+      
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="document.getElementById('connectModal').classList.add('hidden')" class="btn btn-secondary">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary">
+          Connect
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div id="eventModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white w-full max-w-md p-6 rounded shadow">
+    <h3 class="text-lg font-semibold mb-4" id="eventTitle"></h3>
+    <div class="space-y-2 text-sm">
+      <div><strong>Who:</strong> <span id="eventUser"></span></div>
+      <div><strong>When:</strong> <span id="eventTime"></span></div>
+      <div><strong>Status:</strong> <span id="eventStatus"></span></div>
+    </div>
+    <div class="flex justify-end mt-6">
+      <button onclick="document.getElementById('eventModal').classList.add('hidden')" class="btn btn-primary">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script>
+  // Handle connect form submission
+  document.getElementById('connectForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const provider = document.querySelector('input[name="provider"]:checked').value;
+    const forUser = document.getElementById('calendarUser').value;
+    window.location.href = `/calendar/connect/${provider}?for_user=${encodeURIComponent(forUser)}`;
+  });
+
+  // Close modals on background click
+  document.getElementById('connectModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.add('hidden');
+    }
+  });
+  
+  document.getElementById('eventModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.add('hidden');
+    }
+  });
+
+  // Prepare events data
+  const userColors = {
+    {% for user, color in user_colors.items() %}
+    '{{ user }}': '{{ color }}'{{ ',' if not loop.last else '' }}
+    {% endfor %}
+  };
+
+  const events = [
+    {% for event in events %}
+    {
+      id: '{{ event.id }}',
+      title: {{ event.summary | tojson }},
+      start: '{{ event.start_time.isoformat() }}',
+      end: '{{ event.end_time.isoformat() }}',
+      allDay: {{ 'true' if event.is_all_day else 'false' }},
+      backgroundColor: '{{ user_colors[event.user] }}',
+      borderColor: '{{ user_colors[event.user] }}',
+      textColor: 'white',
+      extendedProps: {
+        user: '{{ event.user }}',
+        status: '{{ event.status }}',
+        provider: '{{ event.connection.provider if event.connection else "unknown" }}'
+      }
+    }{{ ',' if not loop.last else '' }}
+    {% endfor %}
+  ];
+
+  // Initialize FullCalendar
+  document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    
+    // Detect if mobile device
+    const isMobile = window.innerWidth < 768;
+    
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: isMobile ? 'listWeek' : 'dayGridMonth',
+      headerToolbar: {
+        left: isMobile ? 'prev,next' : 'prev,next today',
+        center: 'title',
+        right: isMobile ? 'dayGridMonth,listWeek' : 'dayGridMonth,timeGridWeek,listWeek'
+      },
+      views: {
+        dayGridMonth: {
+          titleFormat: isMobile ? { month: 'short', year: 'numeric' } : { month: 'long', year: 'numeric' }
+        }
+      },
+      events: events,
+      eventClick: function(info) {
+        // Show event detail modal
+        const event = info.event;
+        document.getElementById('eventTitle').textContent = event.title;
+        document.getElementById('eventUser').textContent = event.extendedProps.user;
+        
+        const startTime = event.start.toLocaleString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: event.allDay ? undefined : 'numeric',
+          minute: event.allDay ? undefined : '2-digit'
+        });
+        const endTime = event.end ? event.end.toLocaleString('en-US', {
+          hour: event.allDay ? undefined : 'numeric',
+          minute: event.allDay ? undefined : '2-digit'
+        }) : '';
+        
+        document.getElementById('eventTime').textContent = event.allDay 
+          ? startTime + ' (All day)'
+          : startTime + ' - ' + endTime;
+        document.getElementById('eventStatus').textContent = event.extendedProps.status || 'confirmed';
+        
+        document.getElementById('eventModal').classList.remove('hidden');
+      },
+      height: 'auto',
+      contentHeight: 'auto',
+      aspectRatio: isMobile ? 1 : 1.8,
+      handleWindowResize: true,
+      windowResizeDelay: 100,
+      eventDisplay: 'block',
+      displayEventTime: true,
+      eventTimeFormat: {
+        hour: 'numeric',
+        minute: '2-digit',
+        meridiem: 'short'
+      },
+      // Better mobile text sizing
+      dayMaxEvents: isMobile ? 2 : 4,
+      moreLinkClick: 'popover',
+      navLinks: true
+    });
+    
+    calendar.render();
+    
+    // Handle window resize to switch views
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        const nowMobile = window.innerWidth < 768;
+        if (nowMobile && calendar.view.type === 'timeGridWeek') {
+          calendar.changeView('listWeek');
+        }
+      }, 250);
+    });
+  });
+</script>
+{% endblock %}

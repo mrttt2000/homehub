@@ -1,5 +1,6 @@
 instance_name: "My Home Hub"
 password: "" #leave blank for password less access
+admin_password: "" # optional: set to protect Settings with admin-only password
 admin_name: "Administrator"
 feature_toggles:
   shopping_list: true
@@ -15,6 +16,20 @@ feature_toggles:
   expiry_tracker: true
   url_shortener: true
   expense_tracker: true
+  shared_calendar: false # enable after configuring OAuth credentials below
+
+calendar_oauth:
+  google_client_id: ""
+  google_client_secret: ""
+  outlook_client_id: ""
+  outlook_client_secret: ""
+
+weather:
+  enabled: false # enable to show weather widget on dashboard
+  api_key: "" # Get free API key from https://openweathermap.org/api
+  location: "New York,US" # Format: "City,CountryCode" or "City,State,CountryCode"
+  units: "imperial" # "metric" (Celsius, m/s) or "imperial" (Fahrenheit, mph)
+  update_interval: 30 # minutes between weather updates
 
 family_members:
   - Mom
